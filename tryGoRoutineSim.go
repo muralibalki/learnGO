@@ -64,7 +64,7 @@ func main() {
 	// create one channel per agent
 	var chans [nAgents]chan int
 	var Ackchans [nAgents]chan int
-	for i := range chans {
+	for i := 0; i < nAgents; i++ {
 		chans[i] = make(chan int)
 		Ackchans[i] = make(chan int)
 		go updateAgent(i, &agents[i], chans[i], Ackchans[i])
@@ -80,8 +80,6 @@ func simulateLoop(timeSteps int, chans [nAgents]chan int, Ackchans [nAgents]chan
 
 	for t := 0; t < timeSteps; t++ {
 		for i := 0; i < nAgents; i++ {
-			// mark loc unoccupied
-			Env[agents[i].X][agents[i].Y] = -2
 			// signal agents to run 1 time step
 			chans[i] <- 1
 		}
@@ -96,6 +94,35 @@ func simulateLoop(timeSteps int, chans [nAgents]chan int, Ackchans [nAgents]chan
 		writeToJP(t)
 	}
 	doneSim <- 1
+}
+
+func updateAgent(i int, agent *Agent, ch chan int, ackch chan int) {
+	<-ch
+
+	// mark loc unoccupied
+	Env[agent.X][agent.Y] = -2
+	// pick a direction at random
+	count := 0
+	MAXCOUNT := 20
+	flag := true
+	for flag {
+		dirX := 2 * (float64(rand.Intn(2)) - 0.5)
+		dirY := 2 * (float64(rand.Intn(2)) - 0.5)
+		newX := int(math.Min(math.Max(float64(agent.X)+dirX, 0), float64(gridSize-1)))
+		newY := int(math.Min(math.Max(float64(agent.Y)+dirY, 0), float64(gridSize-1)))
+		// if unoccupied move there
+		if Env[newX][newY] == -2 {
+			agent.X = newX
+			agent.Y = newY
+			flag = false
+		}
+		if count > MAXCOUNT {
+			flag = false
+		}
+		count = count + 1
+
+	}
+	ackch <- 1
 }
 
 func writeToJP(t int) {
@@ -139,30 +166,4 @@ func writeToJP(t int) {
 		os.Exit(1)
 	}
 	fmt.Println("Generated image to output.jpg \n")
-}
-
-func updateAgent(i int, agent *Agent, ch chan int, ackch chan int) {
-	<-ch
-	// pick a direction at random
-	count := 0
-	MAXCOUNT := 20
-	flag := true
-	for flag {
-		dirX := 2 * (float64(rand.Intn(2)) - 0.5)
-		dirY := 2 * (float64(rand.Intn(2)) - 0.5)
-		newX := int(math.Min(math.Max(float64(agent.X)+dirX, 0), float64(gridSize-1)))
-		newY := int(math.Min(math.Max(float64(agent.Y)+dirY, 0), float64(gridSize-1)))
-		// if unoccupied move there
-		if Env[newX][newY] == -2 {
-			agent.X = newX
-			agent.Y = newY
-			flag = false
-		}
-		if count > MAXCOUNT {
-			flag = false
-		}
-		count = count + 1
-
-	}
-	ackch <- 1
 }
